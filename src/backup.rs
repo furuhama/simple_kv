@@ -55,7 +55,6 @@ fn backup_to_file(store: &KVStore) -> io::Result<()> {
     let data = store.get_all_data();
     let json = serde_json::to_string_pretty(&data)?;
 
-    // Write to a temporary file first
     let temp_path = format!("{}.tmp", BACKUP_FILE);
     let mut temp_file = File::create(&temp_path)?;
     temp_file.write_all(json.as_bytes())?;
