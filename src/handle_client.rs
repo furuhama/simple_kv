@@ -6,15 +6,32 @@ use std::{
 
 use crate::kv_store::KVStore;
 
-// Function to handle client connections
 pub fn handle_client(mut stream: TcpStream, store: Arc<KVStore>) {
     let addr = stream.peer_addr().unwrap();
     println!("New client connected: {}", addr);
 
-    let reader = BufReader::new(stream.try_clone().unwrap());
+    if let Err(e) = stream.set_nonblocking(false) {
+        eprintln!("Error setting stream to blocking mode: {}", e);
+        return;
+    }
+
+    let reader = match stream.try_clone() {
+        Ok(stream) => BufReader::new(stream),
+        Err(e) => {
+            eprintln!("Error cloning stream: {}", e);
+            return;
+        }
+    };
 
     for line in reader.lines() {
-        let line = line.unwrap();
+        let line = match line {
+            Ok(line) => line,
+            Err(e) => {
+                eprintln!("Error reading line from {}: {}", addr, e);
+                break;
+            }
+        };
+
         let parts: Vec<&str> = line.split_whitespace().collect();
 
         if parts.is_empty() {
@@ -48,11 +65,14 @@ pub fn handle_client(mut stream: TcpStream, store: Arc<KVStore>) {
             _ => "ERROR: Unknown command".to_string(),
         };
 
-        // Add newline to response and send it
-        stream
-            .write_all(format!("{}\n", response).as_bytes())
-            .unwrap();
-        stream.flush().unwrap();
+        if let Err(e) = stream.write_all(format!("{}\n", response).as_bytes()) {
+            eprintln!("Error writing to {}: {}", addr, e);
+            break;
+        }
+        if let Err(e) = stream.flush() {
+            eprintln!("Error flushing stream for {}: {}", addr, e);
+            break;
+        }
 
         println!("Response to {}: {}", addr, response);
     }

@@ -3,29 +3,52 @@ use std::{
     fs::{self, File},
     io::{self, Write},
     path::Path,
-    sync::Arc,
-    thread,
+    process,
     time::Duration,
 };
 
+use nix::{
+    sys::wait::{WaitPidFlag, WaitStatus, waitpid},
+    unistd::{ForkResult, fork},
+};
 use serde_json;
 
 use crate::kv_store::KVStore;
 
-const BACKUP_INTERVAL: Duration = Duration::from_secs(60);
+pub const BACKUP_INTERVAL: Duration = Duration::from_secs(60);
 const BACKUP_FILE: &str = "kv_store_backup.json";
 
-pub fn start_backup_service(store: Arc<KVStore>) {
-    thread::spawn(move || {
-        loop {
-            if let Err(e) = backup_to_file(&store) {
-                eprintln!("Backup error: {}", e);
-            } else {
-                println!("Backup completed successfully");
+pub fn execute_backup(store: &KVStore) {
+    match unsafe { fork() } {
+        Ok(ForkResult::Parent { child }) => {
+            println!("Started backup process with PID: {}", child);
+            match waitpid(child, Some(WaitPidFlag::WNOHANG)) {
+                Ok(WaitStatus::StillAlive) => {
+                    println!("Backup process started in background");
+                }
+                Ok(_) => {
+                    println!("Backup process completed immediately");
+                }
+                Err(e) => eprintln!("Error checking backup process: {}", e),
             }
-            thread::sleep(BACKUP_INTERVAL);
         }
-    });
+        Ok(ForkResult::Child) => {
+            println!("Backup process started");
+            match backup_to_file(store) {
+                Ok(()) => {
+                    println!("Backup completed successfully");
+                    process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("Backup error: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        Err(err) => {
+            eprintln!("Fork failed: {}", err);
+        }
+    }
 }
 
 fn backup_to_file(store: &KVStore) -> io::Result<()> {
