@@ -1,19 +1,21 @@
 use std::{net::TcpListener, sync::Arc, thread, time::Instant};
 
 mod backup;
+mod config;
 mod handle_client;
 mod kv_store;
 
-use backup::{BACKUP_INTERVAL, execute_backup, restore_from_backup};
+use backup::{execute_backup, restore_from_backup};
 use handle_client::handle_client;
 use kv_store::KVStore;
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:6379").unwrap();
-    println!("Server listening on port 6379");
+    let addr = format!("{}:{}", config::SERVER_HOST, config::SERVER_PORT);
+    let listener = TcpListener::bind(&addr).unwrap();
+    println!("Server listening on {}", addr);
 
     let store = Arc::new(KVStore::new());
-    let backup_interval = BACKUP_INTERVAL;
+    let backup_interval = config::BACKUP_INTERVAL;
     let mut last_backup = Instant::now();
 
     if let Err(e) = restore_from_backup(&store) {
@@ -36,7 +38,7 @@ fn main() {
                 });
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                thread::sleep(std::time::Duration::from_millis(100));
+                thread::sleep(config::CONNECTION_RETRY_INTERVAL);
                 continue;
             }
             Err(e) => {
