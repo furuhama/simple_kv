@@ -9,6 +9,20 @@ pub struct KVStore {
 }
 
 impl KVStore {
+    // Get all data from the store for backup
+    pub fn get_all_data(&self) -> HashMap<String, String> {
+        let store = self.store.lock().unwrap();
+        store.clone()
+    }
+
+    // Restore data from backup
+    pub fn restore_from_backup(&self, data: HashMap<String, String>) {
+        let mut store = self.store.lock().unwrap();
+        *store = data;
+    }
+}
+
+impl KVStore {
     pub fn new() -> Self {
         KVStore {
             store: Arc::new(Mutex::new(HashMap::new())),

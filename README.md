@@ -8,6 +8,9 @@ A simple Redis-like key-value store implementation in Rust. This project provide
 - Multi-client support with concurrent connections
 - Redis-like command interface
 - Simple text-based protocol
+- Automatic data persistence to filesystem
+  - Periodic backup (every 60 seconds)
+  - Automatic recovery from backup on startup
 
 ## Running
 
@@ -83,7 +86,6 @@ The server provides error messages for invalid commands:
 
 ## Limitations
 
-- In-memory storage only (data is lost when server stops)
-- No persistence
+- Basic persistence (JSON file backup)
 - Limited command set (SET/GET/DEL only)
 - No support for data types other than strings
