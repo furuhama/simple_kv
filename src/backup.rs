@@ -11,12 +11,12 @@ use nix::{
     sys::wait::{WaitPidFlag, WaitStatus, waitpid},
     unistd::{ForkResult, fork},
 };
-use serde_json;
+use rmp_serde;
 
 use crate::kv_store::KVStore;
 
 pub const BACKUP_INTERVAL: Duration = Duration::from_secs(60);
-const BACKUP_FILE: &str = "kv_store_backup.json";
+const BACKUP_FILE: &str = "kv_store_backup.mp";
 
 pub fn execute_backup(store: &KVStore) {
     match unsafe { fork() } {
@@ -53,11 +53,12 @@ pub fn execute_backup(store: &KVStore) {
 
 fn backup_to_file(store: &KVStore) -> io::Result<()> {
     let data = store.get_all_data();
-    let json = serde_json::to_string_pretty(&data)?;
-
     let temp_path = format!("{}.tmp", BACKUP_FILE);
     let mut temp_file = File::create(&temp_path)?;
-    temp_file.write_all(json.as_bytes())?;
+
+    rmp_serde::encode::write(&mut temp_file, &data)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
     temp_file.flush()?;
 
     // Atomically rename the temporary file to the actual backup file
@@ -72,8 +73,10 @@ pub fn restore_from_backup(store: &KVStore) -> io::Result<()> {
         return Ok(());
     }
 
-    let content = fs::read_to_string(BACKUP_FILE)?;
-    let data: HashMap<String, String> = serde_json::from_str(&content)?;
+    let file = File::open(BACKUP_FILE)?;
+    let data: HashMap<String, String> =
+        rmp_serde::decode::from_read(file).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
     store.restore_from_backup(data);
     println!("Data restored from backup");
 
