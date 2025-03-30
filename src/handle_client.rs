@@ -8,6 +8,9 @@ use crate::kv_store::KVStore;
 
 // Function to handle client connections
 pub fn handle_client(mut stream: TcpStream, store: Arc<KVStore>) {
+    let addr = stream.peer_addr().unwrap();
+    println!("New client connected: {}", addr);
+
     let reader = BufReader::new(stream.try_clone().unwrap());
 
     for line in reader.lines() {
@@ -17,6 +20,8 @@ pub fn handle_client(mut stream: TcpStream, store: Arc<KVStore>) {
         if parts.is_empty() {
             continue;
         }
+
+        println!("Received command from {}: {}", addr, line);
 
         let response = match parts[0].to_uppercase().as_str() {
             "SET" => {
@@ -48,5 +53,9 @@ pub fn handle_client(mut stream: TcpStream, store: Arc<KVStore>) {
             .write_all(format!("{}\n", response).as_bytes())
             .unwrap();
         stream.flush().unwrap();
+
+        println!("Response to {}: {}", addr, response);
     }
+
+    println!("Client disconnected: {}", addr);
 }
