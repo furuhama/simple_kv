@@ -15,7 +15,6 @@ use crate::kv_store::KVStore;
 const BACKUP_INTERVAL: Duration = Duration::from_secs(60);
 const BACKUP_FILE: &str = "kv_store_backup.json";
 
-// Function to start periodic backup
 pub fn start_backup_service(store: Arc<KVStore>) {
     thread::spawn(move || {
         loop {
@@ -29,7 +28,6 @@ pub fn start_backup_service(store: Arc<KVStore>) {
     });
 }
 
-// Function to perform the actual backup
 fn backup_to_file(store: &KVStore) -> io::Result<()> {
     let data = store.get_all_data();
     let json = serde_json::to_string_pretty(&data)?;
@@ -46,7 +44,6 @@ fn backup_to_file(store: &KVStore) -> io::Result<()> {
     Ok(())
 }
 
-// Function to restore data from backup file
 pub fn restore_from_backup(store: &KVStore) -> io::Result<()> {
     if !Path::new(BACKUP_FILE).exists() {
         println!("No backup file found");
