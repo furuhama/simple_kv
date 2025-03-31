@@ -10,7 +10,6 @@ use nix::{
     sys::wait::{WaitPidFlag, WaitStatus, waitpid},
     unistd::{ForkResult, fork},
 };
-use rmp_serde;
 
 use crate::{config, kv_store::KVStore};
 
