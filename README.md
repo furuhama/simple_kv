@@ -8,9 +8,11 @@ A simple Redis-like key-value store implementation in Rust. This project provide
 - Multi-client support with concurrent connections
 - Redis-like command interface
 - Simple text-based protocol
-- Automatic data persistence to filesystem
-  - Periodic backup (every 60 seconds)
-  - Automatic recovery from backup on startup
+- Advanced data persistence
+  - MessagePack-based transaction log (AOF-like)
+  - Periodic snapshot backup (every 60 seconds)
+  - Automatic recovery using both snapshot and transaction logs
+  - Automatic log rotation to prevent unbounded growth
 
 ## Running
 
@@ -33,6 +35,7 @@ nc localhost 6379
 1. **SET key value**
    - Sets the value for a key
    - Response: "OK" on success
+   - Each operation is logged to the transaction log
 
 ```
 SET mykey hello
@@ -49,6 +52,7 @@ GET mykey
 3. **DEL key**
    - Deletes a key and its value
    - Response: "1" if key was deleted, "0" if key didn't exist
+   - The deletion is logged to the transaction log
 
 ```
 DEL mykey
@@ -76,16 +80,38 @@ hello
 - Each client connection is handled in a separate thread
 - Uses a simple text-based protocol with newline-terminated commands
 
+### Persistence Strategy
+
+The server implements a hybrid persistence strategy:
+
+1. **Transaction Log (AOF-like)**
+   - Each write operation (SET/DEL) is logged immediately
+   - Uses MessagePack format for efficient storage
+   - Logs are automatically rotated when they exceed 1MB
+   - Located in the `txlogs` directory
+
+2. **Snapshot Backup**
+   - Full state snapshot every 60 seconds
+   - Uses MessagePack format for efficient storage and recovery
+   - Atomic updates using temporary files
+   - Located at `kv_store_backup.mp`
+
+3. **Recovery Process**
+   - Loads the latest snapshot if available
+   - Replays transaction logs to recover any changes since the last snapshot
+   - Ensures consistency by applying operations in order
+
 ## Error Handling
 
-The server provides error messages for invalid commands:
+The server provides error messages for:
 
 - Invalid command format
 - Wrong number of arguments
 - Unknown commands
+- File system errors during persistence operations
 
 ## Limitations
 
-- Basic persistence (JSON file backup)
 - Limited command set (SET/GET/DEL only)
 - No support for data types other than strings
+- Basic persistence without log compaction
