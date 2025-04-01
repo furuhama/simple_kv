@@ -45,7 +45,10 @@ pub fn handle_client(mut stream: TcpStream, store: Arc<KVStore>) {
                 if parts.len() != 3 {
                     "ERROR: SET command requires KEY and VALUE".to_string()
                 } else {
-                    store.set(parts[1].to_string(), parts[2].to_string())
+                    match store.set(parts[1].to_string(), parts[2].to_string()) {
+                        Ok(response) => response,
+                        Err(e) => format!("ERROR: Failed to set value: {}", e),
+                    }
                 }
             }
             "GET" => {
@@ -59,7 +62,10 @@ pub fn handle_client(mut stream: TcpStream, store: Arc<KVStore>) {
                 if parts.len() != 2 {
                     "ERROR: DEL command requires KEY".to_string()
                 } else {
-                    store.del(parts[1])
+                    match store.del(parts[1]) {
+                        Ok(response) => response,
+                        Err(e) => format!("ERROR: Failed to delete key: {}", e),
+                    }
                 }
             }
             _ => "ERROR: Unknown command".to_string(),

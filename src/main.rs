@@ -4,8 +4,9 @@ mod backup;
 mod config;
 mod handle_client;
 mod kv_store;
+mod transaction_log;
 
-use backup::{execute_backup, restore_from_backup};
+use backup::{execute_backup, restore_data};
 use handle_client::handle_client;
 use kv_store::KVStore;
 
@@ -14,13 +15,16 @@ fn main() {
     let listener = TcpListener::bind(&addr).unwrap();
     println!("Server listening on {}", addr);
 
-    let store = Arc::new(KVStore::new());
+    // KVStoreを作成し、バックアップとトランザクションログを適用
+    let mut store = KVStore::new().expect("Failed to initialize KVStore");
+    if let Err(e) = restore_data(&mut store) {
+        eprintln!("Failed to restore data: {}", e);
+    }
+
+    // Arc化してマルチスレッド対応に
+    let store = Arc::new(store);
     let backup_interval = config::BACKUP_INTERVAL;
     let mut last_backup = Instant::now();
-
-    if let Err(e) = restore_from_backup(&store) {
-        eprintln!("Failed to restore from backup: {}", e);
-    }
 
     listener.set_nonblocking(true).unwrap();
 
