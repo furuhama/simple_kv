@@ -1,3 +1,4 @@
 /target
+/simple_kv_cli/target
 kv_store_backup.*
 /txlogs
